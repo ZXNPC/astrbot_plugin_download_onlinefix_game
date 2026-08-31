@@ -1,0 +1,6 @@
+name: astrbot_plugin_download_onlinefix_game # 插件唯一识别名
+display_name: Online Fix 游戏下载
+desc: 根据游戏名称从 online-fix.me 与 gamer520.com 查找带联机补丁的游戏下载链接。
+version: v1.0.0
+author: ZXNPC # 发布前请修改
+repo: "" # 发布前请填写插件仓库地址

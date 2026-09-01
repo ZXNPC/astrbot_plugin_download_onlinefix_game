@@ -9,19 +9,14 @@
     "type": "int",
     "default": 24
   },
-  "translate_enabled": {
-    "description": "是否启用中文→英文自动翻译（online-fix.me 搜索使用）",
+  "clear_cache": {
+    "description": "设为 true 后，在下次查询时清空全部缓存并自动复位为 false（游戏更新后强制刷新用）",
     "type": "bool",
-    "default": true
+    "default": false
   },
   "request_timeout": {
     "description": "单个来源的请求总超时（秒）",
     "type": "int",
     "default": 60
-  },
-  "proxy": {
-    "description": "翻译请求专用代理，例如 http://127.0.0.1:7890；留空则直连。该代理仅用于访问翻译服务。",
-    "type": "string",
-    "default": ""
   }
 }

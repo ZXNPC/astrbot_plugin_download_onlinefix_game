@@ -9,7 +9,7 @@ AstrBot 插件：根据用户的游戏请求，从 online-fix.me 与 gamer520.co
 _Avoid_: 指令、点单
 
 **英文查询词**:
-online-fix.me 搜索使用的英文游戏名；由游戏请求中的中文名自动翻译生成，翻译失败时退回原词。
+online-fix.me 搜索使用的英文游戏名；由游戏请求中的中文名经 Steam 商店查询解析生成，解析失败时退回原词。
 _Avoid_: 搜索词、query
 
 **搜索源**:

@@ -92,13 +92,13 @@ def test_single_body_result_no_numbering():
     assert "1. 死亡搁浅 导演剪辑版" not in text
 
 
-def test_multiple_results_keep_numbering():
+def test_multiple_results_keep_gamer520_first():
     report = SearchReport(query="赛博朋克2077", onlinefix_ok=True, gamer520_ok=True)
     report.onlinefix_candidates.append(_of_candidate(title="Cyberpunk 2077 по сети"))
     report.gamer520_candidates.append(_g5_candidate(title="赛博朋克2077"))
     text = format_report(report)
-    assert "1. Cyberpunk 2077 по сети" in text
-    assert "2. 赛博朋克2077" in text
+    assert "1. 赛博朋克2077" in text
+    assert "2. Cyberpunk 2077 по сети" in text
 
 
 def test_both_sources_are_separated_by_an_extra_blank_line():
@@ -106,9 +106,8 @@ def test_both_sources_are_separated_by_an_extra_blank_line():
     report.onlinefix_candidates.append(_of_candidate())
     report.gamer520_candidates.append(_g5_candidate(title="赛博朋克2077"))
     text = format_report(report)
-    assert "【全量游戏（含联机补丁）· online-fix.me】" in text
-    assert "\n\n\n【游戏本体 · gamer520.com】" in text
-
+    assert text.index("【游戏本体 · gamer520.com】") < text.index("【全量游戏（含联机补丁）· online-fix.me】")
+    assert "\n\n\n【全量游戏（含联机补丁）· online-fix.me】" in text
 
 
 def test_cached_onlinefix_guarded_links_are_filtered():

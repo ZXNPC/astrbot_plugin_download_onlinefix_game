@@ -9,11 +9,6 @@
     "type": "int",
     "default": 24
   },
-  "clear_cache": {
-    "description": "设为 true 后，在下次查询时清空全部缓存并自动复位为 false（游戏更新后强制刷新用）",
-    "type": "bool",
-    "default": false
-  },
   "request_timeout": {
     "description": "单个来源的请求总超时（秒）",
     "type": "int",

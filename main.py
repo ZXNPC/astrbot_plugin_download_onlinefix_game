@@ -1,4 +1,4 @@
-"""AstrBot 插件：根据用户想玩的游戏，从 online-fix.me 与 gamer520.com 查找下载信息。"""
+"""AstrBot 插件：根据你想玩的游戏，从 gamer520.com 与 online-fix.me 查找下载信息。"""
 
 import re
 import traceback
@@ -16,12 +16,19 @@ from .app.service import GameDownloadService
 
 PLUGIN_NAME = "astrbot_plugin_wanna_play_game"
 PLUGIN_AUTHOR = "ZXNPC"
-PLUGIN_DESC = "根据用户想玩的游戏，从 online-fix.me 与 gamer520.com 查找下载信息"
+PLUGIN_DESC = "根据你想玩的游戏，从 gamer520.com 与 online-fix.me 查找下载信息"
 PLUGIN_VERSION = "v1.0.0"
 PLUGIN_REPO = "https://github.com/ZXNPC/astrbot_plugin_wanna_play_game"
 
-# 自然语言入口：我想玩 X / 我要玩 X / 帮我找 X
-NL_PATTERN = r"^(?:我想玩(?:一下)?|我要玩|帮我(?:找|查)(?:一下)?)\s*[:：]?\s*(.+?)[。！？!?.,，\s]*$"
+CACHE_CLEAR_PHRASE = "清空游戏检索缓存"
+CACHE_CLEARED_MESSAGE = (
+    "已清空游戏检索缓存。"
+    "下次查询会重新请求 gamer520.com 与 online-fix.me，"
+    "适合游戏资源更新后需要强制刷新结果时使用。"
+)
+
+# 自然语言入口：我想玩 X / 我要玩 X
+NL_PATTERN = r"^(?:我想玩(?:一下)?|我要玩)\s*[:：]?\s*(.+?)[。！？!?.,，\s]*$"
 NL_REGEX = re.compile(NL_PATTERN)
 # AstrBot 会剥掉 wake_prefix（默认 "/"），所以指令正文可能是 "game xxx" 或 "/game xxx"
 CMD_REGEX = re.compile(r"^(?:/)?game\s+(.+?)\s*$", re.IGNORECASE)
@@ -31,44 +38,38 @@ CMD_REGEX = re.compile(r"^(?:/)?game\s+(.+?)\s*$", re.IGNORECASE)
 class WannaPlayGameDownload(Star):
     def __init__(self, context: Context, config: Optional[AstrBotConfig] = None):
         super().__init__(context)
-        self.config = config if config is not None else {}
         data_dir = Path(get_astrbot_data_path()) / "plugin_data" / PLUGIN_NAME
         data_dir.mkdir(parents=True, exist_ok=True)
-        ttl_hours = float(self.config.get("cache_ttl", 24))
+        ttl_hours = float((config or {}).get("cache_ttl", 24))
         self.cache = SearchCache(data_dir / "cache.json", ttl_seconds=ttl_hours * 3600)
-        self.service = GameDownloadService(self.config, self.cache)
-        self._maybe_clear_cache()
-
-    def _maybe_clear_cache(self) -> None:
-        """按配置手动清空缓存；清空后自动把 clear_cache 复位为 false。"""
-        try:
-            if not self.config.get("clear_cache", False):
-                return
-            self.cache.clear()
-            self.config["clear_cache"] = False
-            save = getattr(self.config, "save_config", None)
-            if callable(save):
-                save()
-            logger.info("已按配置清空搜索缓存，并将 clear_cache 复位为 false")
-        except Exception:
-            logger.error(f"清空缓存失败，异常堆栈：\n{traceback.format_exc()}")
+        self.service = GameDownloadService(config or {}, self.cache)
 
     @filter.command("game")
     async def game_command(self, event: AstrMessageEvent):
-        """按 /game <游戏名> 查找下载信息。"""
+        """按 /game <游戏名> 查找下载信息，或按 /game 清空游戏检索缓存。"""
         text = (event.message_str or "").strip()
         m = CMD_REGEX.match(text)
-        game_name = m.group(1).strip() if m else ""
-        if not game_name:
+        command_text = m.group(1).strip() if m else ""
+        if not command_text:
             yield event.plain_result(
                 "用法：/game 游戏名，例如 /game 赛博朋克2077；也可以直接发送「我想玩赛博朋克2077」。"
+                "清空缓存请发送 /game 清空游戏检索缓存。"
             )
             return
-        yield event.plain_result(await self._search_and_reply(game_name))
+        if command_text == CACHE_CLEAR_PHRASE:
+            try:
+                self.cache.clear()
+            except Exception:
+                logger.error(f"清空游戏检索缓存失败，异常堆栈：\n{traceback.format_exc()}")
+                yield event.plain_result("清空游戏检索缓存失败，请稍后再试。")
+                return
+            yield event.plain_result(CACHE_CLEARED_MESSAGE)
+            return
+        yield event.plain_result(await self._search_and_reply(command_text))
 
     @filter.regex(NL_REGEX)
     async def game_natural_language(self, event: AstrMessageEvent):
-        """匹配「我想玩 xxx」等自然语言表达。"""
+        """匹配「我想玩 xxx」「我要玩 xxx」等自然语言表达。"""
         m = NL_REGEX.search((event.get_message_str() or "").strip())
         if not m:
             return
@@ -78,7 +79,6 @@ class WannaPlayGameDownload(Star):
         yield event.plain_result(await self._search_and_reply(game_name))
 
     async def _search_and_reply(self, game_name: str) -> str:
-        self._maybe_clear_cache()
         try:
             report = await self.service.search(game_name)
         except Exception:  # 兜底，避免插件因单个异常崩溃

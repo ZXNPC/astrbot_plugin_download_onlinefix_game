@@ -51,6 +51,21 @@ def _display_links(cand):
     return usable
 
 
+def _append_candidate(lines, cand, index, numbered):
+    prefix = f"{index}. " if numbered else ""
+    lines.append(f"{prefix}{cand.title}")
+    if cand.source == "gamer520.com":
+        lines.append(f"   文章页: {cand.page_url}")
+        links = cand.links[:3]
+    else:
+        lines.append(f"   详情页: {cand.page_url}")
+        links = _display_links(cand)
+    for link in links:
+        lines.append(_link_line(link))
+    if cand.password:
+        lines.append(f"   解压密码: {cand.password}")
+
+
 def format_report(report) -> str:
     query = report.query
     of_candidates = report.onlinefix_candidates
@@ -71,33 +86,22 @@ def format_report(report) -> str:
     lines = [f"为你找到《{query}》的下载信息：", ""]
     index = 1
 
-    if of_candidates:
-        lines.append("【全量游戏（含联机补丁）· online-fix.me】")
-        for cand in of_candidates:
-            prefix = f"{index}. " if numbered else ""
-            lines.append(f"{prefix}{cand.title}")
-            lines.append(f"   详情页: {cand.page_url}")
-            for link in _display_links(cand):
-                lines.append(_link_line(link))
-            if cand.password:
-                lines.append(f"   解压密码: {cand.password}")
-            index += 1
-        lines.append("")
-        lines.append(ONLINEFIX_PAGE_GUIDE)
-        lines.append("")
-        lines.append("")  # 让 online-fix.me 与 gamer520.com 两个分组在视觉上隔开
-
     if g5_candidates:
         lines.append("【游戏本体 · gamer520.com】")
         for cand in g5_candidates:
-            prefix = f"{index}. " if numbered else ""
-            lines.append(f"{prefix}{cand.title}")
-            lines.append(f"   文章页: {cand.page_url}")
-            for link in cand.links[:3]:
-                lines.append(_link_line(link))
-            if cand.password:
-                lines.append(f"   解压密码: {cand.password}")
+            _append_candidate(lines, cand, index, numbered)
             index += 1
+        lines.append("")
+        if of_candidates:
+            lines.append("")  # 两个来源的结果之间多留一行空行
+
+    if of_candidates:
+        lines.append("【全量游戏（含联机补丁）· online-fix.me】")
+        for cand in of_candidates:
+            _append_candidate(lines, cand, index, numbered)
+            index += 1
+        lines.append("")
+        lines.append(ONLINEFIX_PAGE_GUIDE)
         lines.append("")
 
     if report.onlinefix_ok and not of_candidates and g5_candidates:

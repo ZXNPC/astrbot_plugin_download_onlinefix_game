@@ -1,4 +1,4 @@
-# Online Fix Game Download Plugin
+# Wanna Play Game Finder Plugin
 
 AstrBot 插件：根据用户的游戏请求，从 online-fix.me 与 gamer520.com 两个搜索源查找并返回游戏下载信息。
 

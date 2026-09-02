@@ -1,4 +1,4 @@
-"""AstrBot 插件：根据游戏名称从 online-fix.me 与 gamer520.com 查找下载链接。"""
+"""AstrBot 插件：根据用户想玩的游戏，从 online-fix.me 与 gamer520.com 查找下载信息。"""
 
 import re
 import traceback
@@ -14,11 +14,11 @@ from .app.cache import SearchCache
 from .app.formatter import format_report
 from .app.service import GameDownloadService
 
-PLUGIN_NAME = "astrbot_plugin_download_onlinefix_game"
+PLUGIN_NAME = "astrbot_plugin_wanna_play_game"
 PLUGIN_AUTHOR = "ZXNPC"
-PLUGIN_DESC = "根据游戏名称从 online-fix.me 与 gamer520.com 查找带联机补丁的游戏下载链接"
+PLUGIN_DESC = "根据用户想玩的游戏，从 online-fix.me 与 gamer520.com 查找下载信息"
 PLUGIN_VERSION = "v1.0.0"
-PLUGIN_REPO = "https://github.com/ZXNPC/astrbot_plugin_download_onlinefix_game"
+PLUGIN_REPO = "https://github.com/ZXNPC/astrbot_plugin_wanna_play_game"
 
 # 自然语言入口：我想玩 X / 我要玩 X / 帮我找 X
 NL_PATTERN = r"^(?:我想玩(?:一下)?|我要玩|帮我(?:找|查)(?:一下)?)\s*[:：]?\s*(.+?)[。！？!?.,，\s]*$"
@@ -28,7 +28,7 @@ CMD_REGEX = re.compile(r"^(?:/)?game\s+(.+?)\s*$", re.IGNORECASE)
 
 
 @register(PLUGIN_NAME, PLUGIN_AUTHOR, PLUGIN_DESC, PLUGIN_VERSION, repo=PLUGIN_REPO)
-class OnlineFixGameDownload(Star):
+class WannaPlayGameDownload(Star):
     def __init__(self, context: Context, config: Optional[AstrBotConfig] = None):
         super().__init__(context)
         self.config = config if config is not None else {}
@@ -49,13 +49,13 @@ class OnlineFixGameDownload(Star):
             save = getattr(self.config, "save_config", None)
             if callable(save):
                 save()
-            logger.info("已按配置清空搜索/名称缓存，并将 clear_cache 复位为 false")
+            logger.info("已按配置清空搜索缓存，并将 clear_cache 复位为 false")
         except Exception:
             logger.error(f"清空缓存失败，异常堆栈：\n{traceback.format_exc()}")
 
     @filter.command("game")
     async def game_command(self, event: AstrMessageEvent):
-        """按 /game <游戏名> 查找下载链接。"""
+        """按 /game <游戏名> 查找下载信息。"""
         text = (event.message_str or "").strip()
         m = CMD_REGEX.match(text)
         game_name = m.group(1).strip() if m else ""
@@ -82,11 +82,11 @@ class OnlineFixGameDownload(Star):
         try:
             report = await self.service.search(game_name)
         except Exception:  # 兜底，避免插件因单个异常崩溃
-            logger.error(f"游戏下载查询失败，异常堆栈：\n{traceback.format_exc()}")
+            logger.error(f"游戏检索查询失败，异常堆栈：\n{traceback.format_exc()}")
             return "查询时出现错误，请稍后再试。"
         if not report.onlinefix_ok or not report.gamer520_ok:
             logger.warning(
-                "游戏下载部分来源失败：onlinefix=%s gamer520=%s",
+                "游戏检索部分来源失败：onlinefix=%s gamer520=%s",
                 report.onlinefix_error or "ok",
                 report.gamer520_error or "ok",
             )

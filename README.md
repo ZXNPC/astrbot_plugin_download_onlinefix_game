@@ -1,4 +1,4 @@
-# Online Fix 游戏下载
+# Wanna Play 游戏检索
 
 一个 AstrBot 插件：用户说一句「我想玩 xxx」（或 `/game xxx`），插件同时搜索
 [online-fix.me](https://online-fix.me/)（带联机补丁的全量游戏）与

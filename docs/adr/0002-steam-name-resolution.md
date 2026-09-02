@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by [0003](./0003-no-auto-name-resolution.md)（2026-09-02）
 
 ## Context
 

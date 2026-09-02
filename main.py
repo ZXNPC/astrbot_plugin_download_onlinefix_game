@@ -17,7 +17,7 @@ from .app.service import GameDownloadService
 PLUGIN_NAME = "astrbot_plugin_download_onlinefix_game"
 PLUGIN_AUTHOR = "ZXNPC"
 PLUGIN_DESC = "根据游戏名称从 online-fix.me 与 gamer520.com 查找带联机补丁的游戏下载链接"
-PLUGIN_VERSION = "v0.9.0"
+PLUGIN_VERSION = "v1.0.0"
 PLUGIN_REPO = "https://github.com/ZXNPC/astrbot_plugin_download_onlinefix_game"
 
 # 自然语言入口：我想玩 X / 我要玩 X / 帮我找 X

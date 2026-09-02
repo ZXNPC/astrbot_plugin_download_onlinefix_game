@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import random
 import re
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
@@ -14,12 +14,26 @@ from .result import Candidate, DownloadLink
 
 SEARCH_URL = "https://online-fix.me/index.php"
 GAME_PATH_RE = re.compile(r"/games/", re.IGNORECASE)
-ARCHIVE_RE = re.compile(r"\.(rar|zip|7z)(?:\?|$)", re.IGNORECASE)
 NETDISK_RE = re.compile(
     r"mega\.nz|pixeldrain|drive\.google|mediafire|gofile\.io|modsfire|buzzheavier|1fichier|workupload|krakenfiles|wdupload|dropbox",
     re.IGNORECASE,
 )
 PASSWORD = "online-fix.me"
+
+
+def is_onlinefix_guarded_url(url: str) -> bool:
+    """判断是否为 online-fix.me 的站内下载地址（依赖 Referer，不能独立外发）。"""
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    host = (parsed.hostname or "").lower()
+    if host == "online-fix.me":
+        try:
+            return parsed.port == 2053
+        except ValueError:
+            return False
+    return host.endswith(".online-fix.me")
 
 
 def parse_search_html(html: str):
@@ -46,26 +60,21 @@ def parse_search_html(html: str):
 
 
 def parse_detail_html(html: str, hit: dict) -> Candidate:
-    """解析详情页下载链接，按优先级：服务器直链＞Drive＞Hosters＞网盘。"""
+    """只保留可独立访问的外部网盘链接。
+
+    站内服务器/Drive/Hosters 链接依赖 Referer，详情页外直接打开会 401，
+    因此不单独外发，统一以详情页作为下载入口。
+    """
     soup = BeautifulSoup(html, "html.parser")
     links = []
     seen = set()
     for a in soup.select("a[href]"):
         href = (a.get("href") or "").strip()
-        lower = href.lower()
-        if "uploads.online-fix.me" in lower:
-            label = "服务器直链目录"
-        elif "drive.online-fix.me" in lower:
-            label = "Online-Fix Drive"
-        elif "hosters.online-fix.me" in lower or ":2053" in lower:
-            label = "Online-Fix Hosters"
-        elif NETDISK_RE.search(lower):
-            label = "网盘"
-        else:
+        if is_onlinefix_guarded_url(href) or not NETDISK_RE.search(href):
             continue
         if href not in seen:
             seen.add(href)
-            links.append(DownloadLink(label, href))
+            links.append(DownloadLink("网盘", href))
     return Candidate(
         source="online-fix.me",
         title=hit.get("title", ""),
@@ -74,38 +83,6 @@ def parse_detail_html(html: str, hit: dict) -> Candidate:
         links=links,
         password=PASSWORD,
     )
-
-
-async def resolve_rar_link(client, dir_url: str, max_depth: int = 2):
-    """在 uploads.online-fix.me 目录列表里定位 Fix Repair 的 .rar。"""
-    current = dir_url
-    for _ in range(max_depth):
-        resp = await fetch(client, current)
-        soup = BeautifulSoup(resp.text, "html.parser")
-        hrefs = []
-        for a in soup.select("a[href]"):
-            href = (a.get("href") or "").strip()
-            if href:
-                hrefs.append(urljoin(current, href))
-        archives = [u for u in hrefs if ARCHIVE_RE.search(u)]
-        if archives:
-            for u in archives:
-                if "fix" in u.lower() or "repair" in u.lower():
-                    return u
-            return archives[0]
-        repair_dir = next(
-            (
-                u
-                for u in hrefs
-                if u.endswith("/") and ("fix" in u.lower() or "repair" in u.lower())
-            ),
-            None,
-        )
-        if repair_dir:
-            current = repair_dir
-            continue
-        return None
-    return None
 
 
 async def search_onlinefix(client, query: str):
@@ -118,24 +95,10 @@ async def search_onlinefix(client, query: str):
 
 
 async def resolve_detail(client, hit: dict) -> Candidate:
-    """抓取详情页并尽量解析出直链。"""
+    """抓取详情页并返回可独立访问的链接；无外链时由 page_url 提供入口。"""
     await asyncio.sleep(random.uniform(1.0, 2.0))  # 反爬：请求间隔
     resp = await fetch(client, hit["page_url"])
-    candidate = parse_detail_html(resp.text, hit)
-    uploads_dir = next(
-        (link.url for link in candidate.links if "uploads.online-fix.me" in link.url),
-        None,
-    )
-    if uploads_dir:
-        try:
-            rar = await resolve_rar_link(client, uploads_dir)
-        except Exception:
-            rar = None  # 目录解析失败时保留原始服务器目录链接
-        if rar:
-            candidate.links.insert(0, DownloadLink("直链 (.rar)", rar))
-    if not candidate.links:
-        candidate.links.append(DownloadLink("详情页", hit.get("page_url", "")))
-    return candidate
+    return parse_detail_html(resp.text, hit)
 
 
 def fallback_candidate(hit: dict) -> Candidate:
@@ -144,6 +107,6 @@ def fallback_candidate(hit: dict) -> Candidate:
         title=hit.get("title", ""),
         page_url=hit.get("page_url", ""),
         kind="full",
-        links=[DownloadLink("详情页", hit.get("page_url", ""))],
+        links=[],
         password=PASSWORD,
     )

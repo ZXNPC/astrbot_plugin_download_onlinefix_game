@@ -6,13 +6,16 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 
-from . import gamer520, name_lookup, online_fix
+from . import gamer520, online_fix
 from .cache import SearchCache
 from .http_client import build_client
 from .matcher import normalize, rank_hits
 from .result import candidate_from_dict, candidate_to_dict
 
 logger = logging.getLogger(__name__)
+
+# 解析策略变更时递增，避免命中上一版缓存的旧链接结构。
+SEARCH_CACHE_VERSION = 2
 
 
 @dataclass
@@ -24,7 +27,6 @@ class SearchReport:
     gamer520_ok: bool = True
     onlinefix_error: str = ""
     gamer520_error: str = ""
-    name_resolution_failed: bool = False
 
 
 class GameDownloadService:
@@ -32,25 +34,6 @@ class GameDownloadService:
         self.result_count = max(1, int(config.get("result_count", 3)))
         self.timeout = max(1.0, float(config.get("request_timeout", 60)))
         self.cache = cache
-
-    async def _resolve_english_name(self, game_name: str):
-        """Steam 名称解析；返回 (英文查询词, 是否成功)。失败时退回原词。"""
-        if not name_lookup.contains_cjk(game_name):
-            return game_name, True
-        cached = self.cache.get_name(game_name)
-        if cached:
-            return cached, True
-        try:
-            en = await name_lookup.resolve_english_name(
-                game_name, timeout=min(self.timeout, 20.0)
-            )
-        except Exception as exc:
-            logger.warning(f"Steam 名称解析失败，退回原词继续搜索: {exc}")
-            en = None
-        if en:
-            self.cache.set_name(game_name, en)
-            return en, True
-        return game_name, False
 
     async def _search_onlinefix(self, query: str, cache_key: str):
         cached = self.cache.get_search(cache_key)
@@ -85,22 +68,21 @@ class GameDownloadService:
         return candidates
 
     async def search(self, game_name: str) -> SearchReport:
+        """两个来源均使用用户请求原词检索，不做中英文名转换。"""
         key = normalize(game_name)
-        en_query, resolved = await self._resolve_english_name(game_name)
+        cache_base = f"{key}:v{SEARCH_CACHE_VERSION}"
         results = await asyncio.gather(
             asyncio.wait_for(
-                self._search_onlinefix(en_query, f"{key}:onlinefix"),
+                self._search_onlinefix(game_name, f"{cache_base}:onlinefix"),
                 timeout=self.timeout,
             ),
             asyncio.wait_for(
-                self._search_gamer520(game_name, f"{key}:gamer520"),
+                self._search_gamer520(game_name, f"{cache_base}:gamer520"),
                 timeout=self.timeout,
             ),
             return_exceptions=True,
         )
-        report = SearchReport(
-            query=game_name.strip(), name_resolution_failed=not resolved
-        )
+        report = SearchReport(query=game_name.strip())
         onlinefix_result, gamer520_result = results
         if isinstance(onlinefix_result, Exception):
             report.onlinefix_ok = False

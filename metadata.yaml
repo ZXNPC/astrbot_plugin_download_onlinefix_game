@@ -1,5 +1,5 @@
 name: astrbot_plugin_wanna_play_game # 插件唯一识别名
-display_name: Wanna Play 游戏检索
+display_name: 我想玩游戏
 desc: 根据用户想玩的游戏，从 online-fix.me 与 gamer520.com 查找下载信息。
 version: v1.0.0
 author: ZXNPC
